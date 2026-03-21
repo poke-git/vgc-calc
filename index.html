@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v0.014</title>
+    <title>VGC Calc v0.015</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; --mega: #a855f7; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; padding-bottom: 50px; }
@@ -12,9 +12,12 @@
         h2 { font-size: 14px; margin: 0 0 10px 0; color: var(--blue); border-bottom: 1px solid #333; padding-bottom: 5px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .label { font-size: 11px; color: #aaa; margin-bottom: 3px; }
+        .base-stats { font-size: 10px; color: var(--mega); margin-bottom: 4px; font-family: monospace; font-weight: bold; min-height: 12px; }
         input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
         .mega-select { border: 1px solid var(--mega) !important; color: var(--mega) !important; font-weight: bold; margin-bottom: 10px; }
-        .check-group { display: flex; align-items: center; gap: 10px; margin-top: 5px; font-size: 13px; }
+        .check-group { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 10px; background: #000; border-radius: 8px; cursor: pointer; }
+        .check-group label { cursor: pointer; font-size: 14px; flex-grow: 1; }
+        input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; }
         button { width: 100%; padding: 18px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 10px; }
         #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); }
         .calc-log { font-size: 10px; color: #555; margin-top: 10px; font-family: monospace; line-height: 1.4; }
@@ -22,10 +25,11 @@
 </head>
 <body>
 
-<div class="version">v0.014</div>
+<div class="version">v0.015</div>
 
 <div class="card">
-    <h2>攻撃側 (Mega Ready)</h2>
+    <h2>攻撃側</h2>
+    <div id="atk_base_display" class="base-stats"></div>
     <select id="atk_pokemon" class="mega-select"><option value="">カスタム(手入力)</option></select>
     <div class="grid">
         <div><div class="label">本体タイプ</div><select id="atk_type"></select></div>
@@ -38,9 +42,8 @@
         <div><div class="label">特性/コンボ</div>
             <select id="atk_ability">
                 <option value="1.0">なし</option>
-                <option value="2.0">ちからもち/ヨガパワー</option>
-                <option value="1.5">てだすけ/適応力(補正込)</option>
-                <option value="1.3">クォーク/古代(1.3倍)</option>
+                <option value="2.0">ちからもち系</option>
+                <option value="1.5">てだすけ/適応力</option>
             </select>
         </div>
     </div>
@@ -59,13 +62,15 @@
         </div>
         <div><div class="label">分類</div><select id="move_cat"><option value="Physical">物理</option><option value="Special">特殊</option></select></div>
     </div>
-    <div class="check-group">
-        <input type="checkbox" id="is_double"> <label for="is_double">ダブルダメージ (0.75x)</label>
+    <div class="check-group" onclick="document.getElementById('is_double').click()">
+        <input type="checkbox" id="is_double">
+        <label for="is_double">ダブルダメージ (複数対象: 0.75倍)</label>
     </div>
 </div>
 
 <div class="card">
-    <h2>防御側 (Mega Ready)</h2>
+    <h2>防御側</h2>
+    <div id="def_base_display" class="base-stats"></div>
     <select id="def_pokemon" class="mega-select"><option value="">カスタム(手入力)</option></select>
     <div class="grid">
         <div><div class="label">タイプ1</div><select id="def_type1"></select></div>
@@ -79,33 +84,23 @@
 <div id="result">ポケモンを選択してください</div>
 
 <script>
-// メガ進化データ: [HP, Atk, Def, SpA, SpD, Type1, Type2]
+// メガ進化データ: [H, A, B, C, D, S, Type1, Type2]
 const MEGA_DATA = {
-    "メガバンギラス": [100, 164, 150, 95, 120, "いわ", "あく"],
-    "メガドリュウズ": [110, 185, 90, 50, 85, "じめん", "はがね"],
-    "メガレックウザ": [105, 180, 100, 180, 100, "ドラゴン", "ひこう"],
-    "メガガブリアス": [108, 170, 115, 120, 95, "ドラゴン", "じめん"],
-    "メガメタグロス": [80, 145, 150, 105, 110, "はがね", "エスパー"],
-    "メガクチート": [50, 105, 125, 55, 95, "はがね", "フェアリー"],
-    "メガボーマンダ": [95, 145, 130, 120, 90, "ドラゴン", "ひこう"],
-    "メガゲンガー": [60, 65, 80, 170, 95, "ゴースト", "どく"],
-    "メガガルーラ": [105, 125, 100, 60, 100, "ノーマル", ""],
-    "メガバシャーモ": [80, 160, 80, 130, 80, "ほのお", "かくとう"],
-    "メガルカリオ": [70, 145, 88, 140, 70, "かくとう", "はがね"]
+    "メガバンギラス": [100, 164, 150, 95, 120, 71, "いわ", "あく"],
+    "メガドリュウズ": [110, 185, 90, 50, 85, 108, "じめん", "はがね"],
+    "メガレックウザ": [105, 180, 100, 180, 100, 115, "ドラゴン", "ひこう"],
+    "メガガブリアス": [108, 170, 115, 120, 95, 92, "ドラゴン", "じめん"],
+    "メガメタグロス": [80, 145, 150, 105, 110, 110, "はがね", "エスパー"],
+    "メガクチート": [50, 105, 125, 55, 95, 50, "はがね", "フェアリー"],
+    "メガボーマンダ": [95, 145, 130, 120, 90, 120, "ドラゴン", "ひこう"],
+    "メガゲンガー": [60, 65, 80, 170, 95, 130, "ゴースト", "どく"],
+    "メガガルーラ": [105, 125, 100, 60, 100, 100, "ノーマル", ""],
+    "メガバシャーモ": [80, 160, 80, 130, 80, 100, "ほのお", "かくとう"],
+    "メガルカリオ": [70, 145, 88, 140, 70, 112, "かくとう", "はがね"]
 };
 
 const TYPES = ["ノーマル", "ほのお", "みず", "くさ", "でんき", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"];
-const CHART = {
-    "かくとう": {"ノーマル": 2, "こおり": 2, "いわ": 2, "あく": 2, "はがね": 2, "どく": 0.5, "ひこう": 0.5, "エスパー": 0.5, "むし": 0.5, "フェアリー": 0.5, "ゴースト": 0},
-    "ほのお": {"くさ": 2, "こおり": 2, "むし": 2, "はがね": 2, "ほのお": 0.5, "みず": 0.5, "いわ": 0.5, "ドラゴン": 0.5},
-    "みず": {"ほのお": 2, "じめん": 2, "いわ": 2, "みず": 0.5, "くさ": 0.5, "ドラゴン": 0.5},
-    "いわ": {"ほのお": 2, "こおり": 2, "ひこう": 2, "むし": 2, "かくとう": 0.5, "じめん": 0.5, "はがね": 0.5},
-    "じめん": {"ほのお": 2, "でんき": 2, "どく": 2, "いわ": 2, "はがね": 2, "くさ": 0.5, "むし": 0.5, "ひこう": 0},
-    "はがね": {"こおり": 2, "いわ": 2, "フェアリー": 2, "ほのお": 0.5, "みず": 0.5, "でんき": 0.5, "はがね": 0.5},
-    "ゴースト": {"エスパー": 2, "ゴースト": 2, "あく": 0.5, "ノーマル": 0},
-    "ドラゴン": {"ドラゴン": 2, "はがね": 0.5, "フェアリー": 0}
-    // 頻出のみ定義（ロジック側でデフォルト1.0x処理）
-};
+const CHART = { "かくとう": {"ノーマル": 2, "こおり": 2, "いわ": 2, "あく": 2, "はがね": 2, "どく": 0.5, "ひこう": 0.5, "エスパー": 0.5, "むし": 0.5, "フェアリー": 0.5, "ゴースト": 0}, "ほのお": {"くさ": 2, "こおり": 2, "むし": 2, "はがね": 2, "ほのお": 0.5, "みず": 0.5, "いわ": 0.5, "ドラゴン": 0.5}, "みず": {"ほのお": 2, "じめん": 2, "いわ": 2, "みず": 0.5, "くさ": 0.5, "ドラゴン": 0.5}, "いわ": {"ほのお": 2, "こおり": 2, "ひこう": 2, "むし": 2, "かくとう": 0.5, "じめん": 0.5, "はがね": 0.5} };
 
 const setup = () => {
     ['atk_type', 'move_type', 'def_type1', 'def_type2'].forEach(id => {
@@ -128,21 +123,22 @@ setup();
 
 const updatePoke = (side) => {
     const name = document.getElementById(side + '_pokemon').value;
-    if(!name) return;
-    const data = MEGA_DATA[name];
-    const isPhys = document.getElementById('move_cat').value === 'Physical';
+    const disp = document.getElementById(side + '_base_display');
+    if(!name) { disp.textContent = ""; return; }
     
+    const d = MEGA_DATA[name];
+    disp.textContent = `H${d[0]}-A${d[1]}-B${d[2]}-C${d[3]}-D${d[4]}-S${d[5]}`;
+    
+    const isPhys = document.getElementById('move_cat').value === 'Physical';
     if(side === 'atk') {
-        document.getElementById('atk_type').value = data[5];
-        const base = isPhys ? data[1] : data[3];
-        document.getElementById('atk_stat').value = Math.floor((base + 52) * 1.1);
+        document.getElementById('atk_type').value = d[6];
+        document.getElementById('atk_stat').value = Math.floor(((isPhys?d[1]:d[3]) + 52) * 1.1);
         if(name === "メガクチート" && isPhys) document.getElementById('atk_ability').value = "2.0";
     } else {
-        document.getElementById('def_type1').value = data[5];
-        document.getElementById('def_type2').value = data[6] || "";
-        document.getElementById('def_hp').value = data[0] + 75;
-        const base = isPhys ? data[2] : data[4];
-        document.getElementById('def_stat').value = base + 20;
+        document.getElementById('def_type1').value = d[6];
+        document.getElementById('def_type2').value = d[7] || "";
+        document.getElementById('def_hp').value = d[0] + 75;
+        document.getElementById('def_stat').value = (isPhys?d[2]:d[4]) + 20;
     }
 };
 
@@ -153,23 +149,20 @@ document.getElementById('move_cat').onchange = () => { updatePoke('atk'); update
 document.getElementById('calcBtn').onclick = () => {
     const n = (id) => parseFloat(document.getElementById(id).value) || 0;
     const v = (id) => document.getElementById(id).value;
-    const isChecked = (id) => document.getElementById(id).checked;
+    const isDouble = document.getElementById('is_double').checked;
 
     let atk = n('atk_stat') * (n('atk_boost') >= 0 ? (2 + n('atk_boost')) / 2 : 2 / (2 + Math.abs(n('atk_boost'))));
     atk = Math.floor(atk * n('atk_ability'));
     
     let def = n('def_stat');
-    // 砂嵐下での岩タイプ特防1.5倍補正
     if(v('weather') === 'sand' && v('move_cat') === 'Special' && (v('def_type1') === 'いわ' || v('def_type2') === 'いわ')) def = Math.floor(def * 1.5);
-    // 雪下での氷タイプ防御1.5倍補正
     if(v('weather') === 'snow' && v('move_cat') === 'Physical' && (v('def_type1') === 'こおり' || v('def_type2') === 'こおり')) def = Math.floor(def * 1.5);
 
     let damage = Math.floor(Math.floor(Math.floor(Math.floor(2 * 50 / 5 + 2) * n('move_bp') * atk / def) / 50) + 2);
-    if (isChecked('is_double')) damage = Math.floor(damage * 0.75);
+    if (isDouble) damage = Math.floor(damage * 0.75);
     
     if ((v('weather') === 'sun' && v('move_type') === 'ほのお') || (v('weather') === 'rain' && v('move_type') === 'みず')) damage = Math.floor(damage * 1.5);
-    if ((v('weather') === 'sun' && v('move_type') === 'みず') || (v('weather') === 'rain' && v('move_type') === 'ほのお')) damage = Math.floor(damage * 0.5);
-
+    
     const stab = (v('atk_type') === v('move_type')) ? 1.5 : 1;
     const getEff = (mt, dt) => (CHART[mt] && CHART[mt][dt] !== undefined) ? CHART[mt][dt] : 1;
     let effect = getEff(v('move_type'), v('def_type1'));
@@ -184,7 +177,7 @@ document.getElementById('calcBtn').onclick = () => {
     document.getElementById('result').innerHTML = `
         <div style="font-size:28px; font-weight:bold; color:#fff;">${min} 〜 ${max}</div>
         <div style="font-size:18px; color:var(--orange); font-weight:bold;">${((min/hp)*100).toFixed(1)}% 〜 ${((max/hp)*100).toFixed(1)}%</div>
-        <div class="calc-log">A/C: ${atk} | D/D: ${def} | HP: ${hp} | 砂/雪補正込</div>
+        <div class="calc-log">Atk: ${atk} / Def: ${def} / HP: ${hp} | 砂/雪補正: ${v('weather')}</div>
     `;
 };
 </script>
