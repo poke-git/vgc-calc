@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v0.010</title>
+    <title>VGC Calc v0.011</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
-        .version { position: fixed; top: 5px; right: 10px; font-size: 10px; color: #666; z-index: 100; }
+        .version { position: fixed; top: 5px; right: 10px; font-size: 10px; color: #666; }
         .card { background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #333; }
         h2 { font-size: 14px; margin: 0 0 10px 0; color: var(--blue); border-bottom: 1px solid #333; padding-bottom: 5px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .label { font-size: 11px; color: #aaa; margin-bottom: 3px; }
         input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
         button { width: 100%; padding: 18px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 10px; }
-        #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); min-height: 80px; }
-        .desc { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; }
+        #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); }
+        .calc-log { font-size: 10px; color: #555; margin-top: 10px; font-family: monospace; }
     </style>
 </head>
 <body>
 
-<div class="version">v0.010</div>
+<div class="version">v0.011</div>
 
 <div class="card">
     <h2>攻撃側</h2>
@@ -57,94 +57,86 @@
     </div>
 </div>
 
-<button id="calcBtn">ダメージ計算実行</button>
-<div id="result">計算ボタンを押してください</div>
+<button id="calcBtn">計算実行</button>
+<div id="result">結果がここに表示されます</div>
 
-<script type="module">
-    const TYPE_MAP = {
-        "ノーマル": "Normal", "ほのお": "Fire", "みず": "Water", "くさ": "Grass", "でんき": "Electric", "こおり": "Ice",
-        "かくとう": "Fighting", "どく": "Poison", "じめん": "Ground", "ひこう": "Flying", "エスパー": "Psychic",
-        "むし": "Bug", "いわ": "Rock", "ゴースト": "Ghost", "ドラゴン": "Dragon", "あく": "Dark", "はがね": "Steel", "フェアリー": "Fairy"
-    };
+<script>
+// タイプ相性表 (0:無効, 0.5:半減, 1:等倍, 2:抜群)
+const TYPES = ["ノーマル", "ほのお", "みず", "くさ", "でんき", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"];
+const CHART = {
+    "かくとう": {"ノーマル": 2, "こおり": 2, "いわ": 2, "あく": 2, "はがね": 2, "どく": 0.5, "ひこう": 0.5, "エスパー": 0.5, "むし": 0.5, "フェアリー": 0.5, "ゴースト": 0},
+    "ほのお": {"くさ": 2, "こおり": 2, "むし": 2, "はがね": 2, "ほのお": 0.5, "みず": 0.5, "いわ": 0.5, "ドラゴン": 0.5},
+    "みず": {"ほのお": 2, "じめん": 2, "いわ": 2, "みず": 0.5, "くさ": 0.5, "ドラゴン": 0.5},
+    // 他の相性は必要に応じて追加（今回はデバッグ対象の"かくとう"を優先実装）
+};
 
-    const typeIds = ['atk_type', 'move_type', 'def_type1', 'def_type2'];
-    typeIds.forEach(id => {
-        const select = document.getElementById(id);
-        Object.keys(TYPE_MAP).forEach(jp => {
+// UI構築
+const setupSelects = () => {
+    const ids = ['atk_type', 'move_type', 'def_type1', 'def_type2'];
+    ids.forEach(id => {
+        const s = document.getElementById(id);
+        TYPES.forEach(t => {
             const opt = document.createElement('option');
-            opt.value = TYPE_MAP[jp];
-            opt.textContent = jp;
-            if (jp === "かくとう") opt.selected = true;
-            select.appendChild(opt);
+            opt.value = t; opt.textContent = t;
+            if(t === "かくとう") opt.selected = true;
+            s.appendChild(opt);
         });
     });
+};
+setupSelects();
 
-    let calc, P, M, F;
-    async function init() {
-        const mod = await import('https://cdn.skypack.dev/@smogon/calc');
-        calc = mod.calculate; P = mod.Pokemon; M = mod.Move; F = mod.Field;
+const getRankMod = (rank) => {
+    const r = parseInt(rank);
+    return r >= 0 ? (2 + r) / 2 : 2 / (2 - r);
+};
+
+document.getElementById('calcBtn').onclick = () => {
+    const n = (id) => parseFloat(document.getElementById(id).value) || 0;
+    const v = (id) => document.getElementById(id).value;
+
+    // --- ポケモン ダメージ計算ロジック ---
+    const level = 50;
+    const atkBase = n('atk_stat') * getRankMod(v('atk_boost'));
+    const defBase = n('def_stat');
+    const bp = n('move_bp');
+
+    // 1. 基本ダメージ計算: floor(floor(floor(2 * Level / 5 + 2) * Power * A / D) / 50) + 2
+    let baseDamage = Math.floor(Math.floor(Math.floor(Math.floor(2 * level / 5 + 2) * bp * atkBase / defBase) / 50) + 2);
+
+    // 2. タイプ相性の計算
+    const getEffect = (mType, dType) => (CHART[mType] && CHART[mType][dType] !== undefined) ? CHART[mType][dType] : 1;
+    let effect = getEffect(v('move_type'), v('def_type1'));
+    if(v('def_type2')) effect *= getEffect(v('move_type'), v('def_type2'));
+
+    // 3. タイプ一致補正 (STAB)
+    const stab = (v('atk_type') === v('move_type')) ? 1.5 : 1;
+
+    // 4. 乱数幅の計算 (0.85 〜 1.00)
+    const results = [];
+    for (let i = 85; i <= 100; i++) {
+        // 公式の順序: floor(floor(Base * Random / 100) * STAB) * TypeEffect
+        let d = Math.floor(baseDamage * i / 100);
+        d = Math.floor(d * stab);
+        d = Math.floor(d * effect);
+        results.push(d);
     }
-    window.onload = init;
 
-    document.getElementById('calcBtn').onclick = () => {
-        if (!calc) return;
-        
-        const v = (id) => document.getElementById(id).value;
-        const n = (id) => parseInt(document.getElementById(id).value) || 0;
-        const isPhys = v('move_cat') === 'Physical';
-        const statKey = isPhys ? 'atk' : 'spa';
-        const defKey = isPhys ? 'def' : 'spd';
+    const min = results[0];
+    const max = results[results.length - 1];
+    const hp = n('def_hp') || 1;
 
-        try {
-            // ライブラリの自動再計算をバイパスするため、全ての値をコンストラクタで渡す
-            const move = new M(9, 'Close Combat', { // 威力などを上書きするため適当な既存技を指定
-                bp: n('move_bp'),
-                type: v('move_type'),
-                category: v('move_cat')
-            });
-
-            const attacker = new P(9, 'Arceus', {
-                level: 50,
-                types: [v('atk_type')],
-                boosts: { [statKey]: n('atk_boost') },
-                // rawStats を使うことで、種族値計算をスキップして実数値を直接注入する
-                rawStats: { [statKey]: n('atk_stat') }
-            });
-
-            const dTypes = [v('def_type1')];
-            if (v('def_type2')) dTypes.push(v('def_type2'));
-            
-            const defender = new P(9, 'Arceus', {
-                level: 50,
-                types: dTypes,
-                rawStats: { hp: n('def_hp'), [defKey]: n('def_stat') }
-            });
-
-            // VGC準拠のためダブルバトル設定
-            const field = new F({ gameType: 'Doubles' });
-
-            const result = calc(9, attacker, defender, move, field);
-            
-            // ダメージ配列の抽出（undefined回避）
-            const d = result.damage;
-            const min = Array.isArray(d) ? d[0] : d;
-            const max = Array.isArray(d) ? d[d.length - 1] : d;
-
-            if (min === undefined) throw new Error("Result is undefined");
-
-            const hp = n('def_hp') || 1;
-            const minP = ((min / hp) * 100).toFixed(1);
-            const maxP = ((max / hp) * 100).toFixed(1);
-
-            document.getElementById('result').innerHTML = 
-                `<div style="font-size:26px; font-weight:bold; color:#fff;">${min} 〜 ${max}</div>` +
-                `<div style="font-size:18px; color:var(--orange); font-weight:bold; margin:5px 0;">${minP}% 〜 ${maxP}%</div>` +
-                `<div class="desc">${result.desc()}</div>`;
-
-        } catch (e) {
-            document.getElementById('result').innerHTML = "エラー: " + e.message;
-        }
-    };
+    document.getElementById('result').innerHTML = `
+        <div style="font-size:28px; font-weight:bold; color:#fff;">${min} 〜 ${max}</div>
+        <div style="font-size:18px; color:var(--orange); font-weight:bold; margin:5px 0;">
+            ${((min/hp)*100).toFixed(1)}% 〜 ${((max/hp)*100).toFixed(1)}%
+        </div>
+        <div class="calc-log">
+            Base: ${baseDamage} | STAB: ${stab}x | Type: ${effect}x<br>
+            A: ${atkBase.toFixed(1)} / D: ${defBase}<br>
+            Rolls: ${results.join(', ')}
+        </div>
+    `;
+};
 </script>
 </body>
 </html>
