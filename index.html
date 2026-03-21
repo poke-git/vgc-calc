@@ -3,184 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Damage Calculator</title>
-    <script src="https://cdn.jsdelivr.net/npm/@smogon/calc/dist/index.min.js"></script>
+    <title>VGC Calc Pro</title>
     <style>
-        :root {
-            --primary-bg: #1a1a1a;
-            --card-bg: #2d2d2d;
-            --text-color: #ffffff;
-            --accent-color: #3b82f6;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--primary-bg);
-            color: var(--text-color);
-            margin: 0;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 500px;
-        }
-        .status-badge {
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .loading { background-color: #ef4444; }
-        .ready { background-color: #10b981; }
-
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        h2 { font-size: 1.1rem; margin-top: 0; color: var(--accent-color); }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .input-group { margin-bottom: 10px; }
-        label { display: block; font-size: 12px; margin-bottom: 4px; opacity: 0.8; }
-        input, select {
-            width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background-color: #1a1a1a;
-            color: white;
-            font-size: 16px; /* iPhoneでズームされないためのサイズ */
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 10px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        button:active { opacity: 0.8; transform: scale(0.98); }
-        #result {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #000;
-            border-left: 4px solid var(--accent-color);
-            line-height: 1.6;
-            word-break: break-all;
-        }
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #4dabf7; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; margin: 0; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+        input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: var(--blue); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 10px; }
+        #log { font-family: monospace; font-size: 10px; color: #888; margin-top: 20px; white-space: pre-wrap; background: #000; padding: 10px; border-radius: 5px; }
+        #result { margin-top: 20px; padding: 15px; background: #2b2b2b; border-radius: 8px; border-left: 5px solid var(--blue); font-size: 1.2rem; }
+        .label { font-size: 12px; margin-bottom: 5px; color: #aaa; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="status" class="status-badge loading">ライブラリ読み込み中...</div>
+<div id="status">⏳ ライブラリ接続中...</div>
 
-    <div class="card">
-        <h2>攻撃側 (Attacker)</h2>
-        <div class="grid">
-            <div class="input-group">
-                <label>攻撃力(実数値)</label>
-                <input type="number" id="atk_stat" value="100" inputmode="numeric">
-            </div>
-            <div class="input-group">
-                <label>わざ威力</label>
-                <input type="number" id="move_power" value="80" inputmode="numeric">
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>防御側 (Defender)</h2>
-        <div class="grid">
-            <div class="input-group">
-                <label>HP(実数値)</label>
-                <input type="number" id="def_hp" value="175" inputmode="numeric">
-            </div>
-            <div class="input-group">
-                <label>防御/特防(実数値)</label>
-                <input type="number" id="def_stat" value="100" inputmode="numeric">
-            </div>
-        </div>
-    </div>
-
-    <button onclick="calculateDamage()">ダメージ計算</button>
-
-    <div id="result">結果がここに表示されます</div>
+<div class="card">
+    <div class="label">攻撃側 実数値</div>
+    <input type="number" id="atk" value="100" inputmode="numeric">
+    <div style="margin-top:10px" class="label">わざ威力</div>
+    <input type="number" id="bp" value="80" inputmode="numeric">
 </div>
 
-<script>
-    // ライブラリの読み込みを監視
-    function checkLibrary() {
-        const statusDiv = document.getElementById('status');
-        if (window.smogon && window.smogon.calc) {
-            statusDiv.innerText = "計算可能 (Ready)";
-            statusDiv.className = "status-badge ready";
-        } else {
-            setTimeout(checkLibrary, 500);
+<div class="card">
+    <div class="label">防御側 HP実数値</div>
+    <input type="number" id="hp" value="175" inputmode="numeric">
+    <div style="margin-top:10px" class="label">防御側 防御/特防実数値</div>
+    <input type="number" id="def" value="100" inputmode="numeric">
+</div>
+
+<button id="calcBtn">計算実行</button>
+
+<div id="result">数値を入力してボタンを押してください</div>
+
+<div id="log">System Log: Initializing...</div>
+
+<script type="module">
+    // iPhoneのSafariで最も安定する「ES Modules」形式での読み込み
+    const log = (msg) => { document.getElementById('log').innerText += "\n" + msg; };
+    
+    let calcMethod;
+    let P;
+    let M;
+
+    async function init() {
+        try {
+            log("Loading library from Skypack...");
+            // Skypack CDNを使用（スマホブラウザと相性が良い）
+            const module = await import('https://cdn.skypack.dev/@smogon/calc');
+            calcMethod = module.calculate;
+            P = module.Pokemon;
+            M = module.Move;
+            
+            document.getElementById('status').innerText = "✅ 準備完了";
+            document.getElementById('status').style.color = "#4caf50";
+            log("Library loaded successfully.");
+        } catch (e) {
+            document.getElementById('status').innerText = "❌ 読み込み失敗";
+            log("ERROR: " + e.message);
         }
     }
-    checkLibrary();
 
-    function calculateDamage() {
-        if (!window.smogon || !window.smogon.calc) {
-            alert("ライブラリがまだ準備できていません。数秒お待ちください。");
+    window.onload = init;
+
+    document.getElementById('calcBtn').onclick = () => {
+        if (!calcMethod) {
+            alert("ライブラリがまだ読み込まれていません。");
             return;
         }
 
-        const { calculate, Pokemon, Move, Field } = window.smogon.calc;
-
-        // 入力値の取得
-        const atkStat = parseInt(document.getElementById('atk_stat').value);
-        const movePower = parseInt(document.getElementById('move_power').value);
-        const defHp = parseInt(document.getElementById('def_hp').value);
-        const defStat = parseInt(document.getElementById('def_stat').value);
-
         try {
-            // 計算実行（シンプル版）
-            const result = calculate(
-                9, // 世代 (SVは9)
-                new Pokemon(9, 'Abra', { evs: { atk: 0 }, ivs: { atk: 31 }, nature: 'Hardy' }), // ダミー個体
-                new Pokemon(9, 'Abra', { evs: { hp: 0 }, ivs: { hp: 31 }, nature: 'Hardy' }), // ダミー個体
-                new Move(9, 'Tackle', { bp: movePower })
+            const atk = parseInt(document.getElementById('atk').value);
+            const bp = parseInt(document.getElementById('bp').value);
+            const hp = parseInt(document.getElementById('hp').value);
+            const def = parseInt(document.getElementById('def').value);
+
+            // シンプルな計算モデルの構築
+            const result = calcMethod(
+                9,
+                new P(9, 'Pikachu', {evs: {atk: 0}}),
+                new P(9, 'Pikachu', {evs: {hp: 0}}),
+                new M(9, 'Tackle', {bp: bp})
             );
 
-            // ダミー個体の数値を上書き
-            result.attacker.rawStats.atk = atkStat;
-            result.defender.rawStats.hp = defHp;
-            result.defender.rawStats.def = defStat;
+            // 実数値を強制上書き
+            result.attacker.rawStats.atk = atk;
+            result.defender.rawStats.hp = hp;
+            result.defender.rawStats.def = def;
 
-            // 再計算（数値上書きを反映）
-            const damageResults = result.damage;
-            const minDamage = damageResults[0];
-            const maxDamage = damageResults[damageResults.length - 1];
-
-            const minPercent = ((minDamage / defHp) * 100).toFixed(1);
-            const maxPercent = ((maxDamage / defHp) * 100).toFixed(1);
+            const damages = result.damage;
+            const min = damages[0];
+            const max = damages[damages.length - 1];
+            
+            const minP = ((min / hp) * 100).toFixed(1);
+            const maxP = ((max / hp) * 100).toFixed(1);
 
             document.getElementById('result').innerHTML = 
-                `<strong>ダメージ: ${minDamage} 〜 ${maxDamage}</strong><br>` +
-                `割合: ${minPercent}% 〜 ${maxPercent}%<br>` +
-                `確定数: ${minPercent >= 100 ? '確定1発' : '確定2発以降'}`;
-
+                `<strong>${min} 〜 ${max} ダメージ</strong><br>` +
+                `<span style="color:#4dabf7">${minP}% 〜 ${maxP}%</span>`;
+            
+            log("Calculation success.");
         } catch (e) {
-            document.getElementById('result').innerText = "エラーが発生しました: " + e.message;
+            log("Calc Error: " + e.message);
         }
-    }
+    };
 </script>
 
 </body>
