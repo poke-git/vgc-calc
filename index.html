@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v6</title>
+    <title>VGC Calc v7 - Type Fixed</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
@@ -20,33 +20,31 @@
 <body>
 
 <div class="card">
-    <h2>攻撃側</h2>
+    <h2>攻撃側 (Attacker)</h2>
     <div class="grid">
-        <div><div class="label">本体タイプ</div><select id="atk_type"><option value="Normal">ノーマル</option><option value="Fire">ほのお</option><option value="Water">みず</option><option value="Grass">くさ</option><option value="Electric">でんき</option><option value="Ice">こおり</option><option value="Fighting">かくとう</option><option value="Poison">どく</option><option value="Ground">じめん</option><option value="Flying">ひこう</option><option value="Psychic">エスパー</option><option value="Bug">むし</option><option value="Rock">いわ</option><option value="Ghost">ゴースト</option><option value="Dragon">ドラゴン</option><option value="Dark">あく</option><option value="Steel">はがね</option><option value="Fairy">フェアリー</option></select></div>
-        <div><div class="label">テラス</div><select id="atk_tera"><option value="">なし</option><script>document.write(document.querySelector('#atk_type').innerHTML);</script></select></div>
-        <div><div class="label">攻撃/特攻 実数値</div><input type="number" id="atk_stat" value="100"></div>
-        <div><div class="label">ランク</div><select id="atk_boost"><option value="6">+6</option><option value="5">+5</option><option value="4">+4</option><option value="3">+3</option><option value="2">+2</option><option value="1">+1</option><option value="0" selected>±0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option></select></div>
-        <div style="grid-column: span 2;"><div class="label">持ち物</div><select id="atk_item"><option value="">なし</option><option value="Choice Band">ハチマキ</option><option value="Choice Specs">メガネ</option><option value="Life Orb">珠</option><option value="Expert Belt">帯</option><option value="Mystic Water">タイプ強化</option></select></div>
+        <div><div class="label">本体タイプ</div><select id="atk_type"><option value="Normal">Normal</option><option value="Fire">Fire</option><option value="Water">Water</option><option value="Grass">Grass</option><option value="Electric">Electric</option><option value="Ice">Ice</option><option value="Fighting">Fighting</option><option value="Poison">Poison</option><option value="Ground">Ground</option><option value="Flying">Flying</option><option value="Psychic">Psychic</option><option value="Bug">Bug</option><option value="Rock">Rock</option><option value="Ghost">Ghost</option><option value="Dragon">Dragon</option><option value="Dark">Dark</option><option value="Steel">Steel</option><option value="Fairy">Fairy</option></select></div>
+        <div><div class="label">テラス</div><select id="atk_tera"><option value="">None</option><script>document.write(document.querySelector('#atk_type').innerHTML);</script></select></div>
+        <div><div class="label">攻撃実数値</div><input type="number" id="atk_stat" value="100"></div>
+        <div><div class="label">ランク</div><select id="atk_boost"><option value="6">+6</option><option value="0" selected>±0</option><option value="-6">-6</option></select></div>
     </div>
 </div>
 
 <div class="card">
-    <h2>わざ・環境</h2>
+    <h2>わざ (Move)</h2>
     <div class="grid">
         <div><div class="label">わざタイプ</div><select id="move_type"><script>document.write(document.querySelector('#atk_type').innerHTML);</script></select></div>
-        <div><div class="label">分類</div><select id="move_cat"><option value="Physical">物理</option><option value="Special">特殊</option></select></div>
-        <div><div class="label">威力</div><input type="number" id="move_bp" value="80"></div>
-        <div><div class="label">天候</div><select id="weather"><option value="">なし</option><option value="Sun">晴れ</option><option value="Rain">雨</option><option value="Sand">砂嵐</option><option value="Snow">雪</option></select></div>
+        <div><div class="label">分類</div><select id="move_cat"><option value="Physical">Physical</option><option value="Special">Special</option></select></div>
+        <div style="grid-column: span 2;"><div class="label">威力</div><input type="number" id="move_bp" value="80"></div>
     </div>
 </div>
 
 <div class="card">
-    <h2>防御側</h2>
+    <h2>防御側 (Defender)</h2>
     <div class="grid">
         <div><div class="label">HP実数値</div><input type="number" id="def_hp" value="175"></div>
-        <div><div class="label">防御/特防 実数値</div><input type="number" id="def_stat" value="100"></div>
+        <div><div class="label">防御実数値</div><input type="number" id="def_stat" value="100"></div>
         <div><div class="label">タイプ1</div><select id="def_type1"><script>document.write(document.querySelector('#atk_type').innerHTML);</script></select></div>
-        <div><div class="label">タイプ2</div><select id="def_type2"><option value="">なし</option><script>document.write(document.querySelector('#atk_type').innerHTML);</script></select></div>
+        <div><div class="label">タイプ2</div><select id="def_type2"><option value="">None</option><script>document.write(document.querySelector('#atk_type').innerHTML);</script></select></div>
     </div>
 </div>
 
@@ -68,36 +66,32 @@
         const isPhys = v('move_cat') === 'Physical';
 
         try {
-            // 【解決策】実在しない技名（Custom）を使うことでライブラリの自動上書きを完全に防ぐ
-            const move = new M(9, 'CustomMove', { 
-                bp: n('move_bp'), 
-                type: v('move_type'), 
-                category: v('move_cat')
-            });
+            // 1. 各オブジェクトの生成
+            const move = new M(9, 'Tackle', { bp: n('move_bp') });
+            const attacker = new P(9, 'Arceus', { level: 50 });
+            const defender = new P(9, 'Arceus', { level: 50 });
+            const field = new F({ gameType: 'Doubles' });
 
-            // 攻撃側：タイプ相性を確実に計算させるため汎用個体を使用
-            const attacker = new P(9, 'Arceus', {
-                level: 50,
-                types: [v('atk_type')],
-                teraType: v('atk_tera') || undefined,
-                item: v('atk_item'),
-                boosts: { [isPhys ? 'atk' : 'spa']: n('atk_boost') }
-            });
+            // 2. 攻撃側のタイプ設定 (STAB一致補正のため)
+            attacker.types = [v('atk_type')];
+            if (v('atk_tera')) attacker.teraType = v('atk_tera');
             attacker.stats[isPhys ? 'atk' : 'spa'] = n('atk_stat');
+            attacker.boosts[isPhys ? 'atk' : 'spa'] = n('atk_boost');
 
-            // 防御側
-            const defender = new P(9, 'Arceus', {
-                level: 50,
-                types: [v('def_type1'), v('def_type2')].filter(t => t !== "")
-            });
+            // 3. 防御側のタイプ設定 (相性補正のため)
+            const defTypes = [v('def_type1')];
+            if (v('def_type2')) defTypes.push(v('def_type2'));
+            defender.types = defTypes;
             defender.stats.hp = n('def_hp');
             defender.stats[isPhys ? 'def' : 'spd'] = n('def_stat');
 
-            const field = new F({ weather: v('weather'), gameType: 'Doubles' });
+            // 4. 技のタイプ設定 (CustomMove化して自動補正を無効化)
+            move.name = 'CustomMove';
+            move.type = v('move_type');
+            move.category = v('move_cat');
 
-            // 計算実行
+            // 5. 計算実行
             const result = calc(9, attacker, defender, move, field);
-            
             const d = result.damage;
             const min = Array.isArray(d) ? d[0] : d;
             const max = Array.isArray(d) ? d[d.length - 1] : d;
