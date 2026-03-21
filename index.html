@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v3</title>
+    <title>VGC Calc v4</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
@@ -12,12 +12,11 @@
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .label { font-size: 11px; color: #aaa; margin-bottom: 3px; }
         input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
-        /* ボタンを押した時の反応を良くする */
-        button { width: 100%; padding: 16px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+        button { width: 100%; padding: 16px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         button:active { background: #2563eb; transform: scale(0.98); }
         #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); min-height: 80px; }
-        .desc { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; }
-        .status { font-size: 12px; text-align: center; margin-bottom: 10px; color: #10b981; font-weight: bold; }
+        .desc { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; word-break: break-all; }
+        .status { font-size: 12px; text-align: center; margin-bottom: 10px; color: #10b981; }
     </style>
 </head>
 <body>
@@ -55,88 +54,73 @@
     </div>
 </div>
 
-<button id="calcBtn">計算実行（更新）</button>
-<div id="result">結果がここに表示されます</div>
+<button id="calcBtn">ダメージ計算実行</button>
+<div id="result">数値を入力してください</div>
 
 <script type="module">
     let calc, P, M, F;
-
     async function init() {
         try {
             const mod = await import('https://cdn.skypack.dev/@smogon/calc');
             calc = mod.calculate; P = mod.Pokemon; M = mod.Move; F = mod.Field;
             document.getElementById('status').innerText = "● 計算可能 (Ready)";
-        } catch (e) {
-            document.getElementById('status').innerText = "● 読み込み失敗";
-            document.getElementById('status').style.color = "red";
-        }
+        } catch (e) { document.getElementById('status').innerText = "● 読込失敗"; }
     }
     window.onload = init;
 
     document.getElementById('calcBtn').onclick = () => {
-        if (!calc) { alert("ライブラリを読み込み中です..."); return; }
-
-        // ボタンを押した瞬間の値をすべて取得し直す
-        const getVal = (id) => document.getElementById(id).value;
-        const getNum = (id) => {
-            const val = parseInt(document.getElementById(id).value);
-            return isNaN(val) ? 0 : val;
-        };
+        if (!calc) return;
+        const v = (id) => document.getElementById(id).value;
+        const n = (id) => parseInt(document.getElementById(id).value) || 1;
 
         try {
-            const isPhys = getVal('move_cat') === 'Physical';
-            const field = new F({ weather: getVal('weather'), gameType: 'Doubles' });
-            
-            // わざの再生成
-            const move = new M(9, 'Tackle', { 
-                bp: getNum('move_bp'), 
-                type: getVal('move_type'), 
-                category: getVal('move_cat')
-            });
+            const isPhys = v('move_cat') === 'Physical';
+            const field = new F({ weather: v('weather'), gameType: 'Doubles' });
+            const move = new M(9, 'Tackle', { bp: n('move_bp'), type: v('move_type'), category: v('move_cat') });
 
-            // 攻撃側の再生成
-            const attacker = new P(9, 'Pikachu', {
-                types: [getVal('atk_type')],
-                teraType: getVal('atk_tera') || undefined,
-                item: getVal('atk_item'),
-                boosts: { [isPhys ? 'atk' : 'spa']: getNum('atk_boost') }
-            });
-            attacker.rawStats[isPhys ? 'atk' : 'spa'] = getNum('atk_stat');
+            // 【重要】実数値から逆算してステータスを設定する関数
+            // 努力値(ev) = (実数値 / 補正 - 5) * 8 - 31 * 2 (Lv50の場合の簡易計算)
+            const calcEv = (stat) => Math.max(0, Math.min(252, (stat - 5) * 8 - 62));
 
-            // 防御側の再生成
-            const defender = new P(9, 'Pikachu', {
-                types: [getVal('def_type1'), getVal('def_type2')].filter(t => t !== "")
+            const attacker = new P(9, 'Abra', {
+                level: 50,
+                types: [v('atk_type')],
+                teraType: v('atk_tera') || undefined,
+                item: v('atk_item'),
+                boosts: { [isPhys ? 'atk' : 'spa']: n('atk_boost') },
+                evs: { [isPhys ? 'atk' : 'spa']: calcEv(n('atk_stat')) },
+                ivs: { [isPhys ? 'atk' : 'spa']: 31 },
+                nature: 'Hardy'
             });
-            defender.rawStats.hp = getNum('def_hp');
-            defender.rawStats[isPhys ? 'def' : 'spd'] = getNum('def_stat');
+            // ライブラリの最終数値を強制セット
+            attacker.stats[isPhys ? 'atk' : 'spa'] = n('atk_stat');
 
-            // 計算の実行
+            const defender = new P(9, 'Abra', {
+                level: 50,
+                types: [v('def_type1'), v('def_type2')].filter(t => t !== ""),
+                evs: { 
+                    hp: Math.max(0, Math.min(252, (n('def_hp') - 110) * 8)), 
+                    [isPhys ? 'def' : 'spd']: calcEv(n('def_stat')) 
+                },
+                ivs: { hp: 31, [isPhys ? 'def' : 'spd']: 31 },
+                nature: 'Hardy'
+            });
+            defender.stats.hp = n('def_hp');
+            defender.stats[isPhys ? 'def' : 'spd'] = n('def_stat');
+
             const result = calc(9, attacker, defender, move, field);
-            
-            // ダメージ配列の取得
             const d = result.damage;
-            let min, max;
-            if (Array.isArray(d)) {
-                min = d[0];
-                max = d[d.length - 1];
-            } else {
-                min = max = d;
-            }
+            const min = Array.isArray(d) ? d[0] : d;
+            const max = Array.isArray(d) ? d[d.length - 1] : d;
+            const hp = n('def_hp');
 
-            const hp = getNum('def_hp') || 1;
-            const minP = ((min / hp) * 100).toFixed(1);
-            const maxP = ((max / hp) * 100).toFixed(1);
-
-            // 結果を画面に上書き
             document.getElementById('result').innerHTML = 
-                `<div style="font-size:24px; font-weight:bold; color:#fff;">${min} 〜 ${max}</div>` +
-                `<div style="font-size:18px; color:var(--orange); font-weight:bold; margin:4px 0;">${minP}% 〜 ${maxP}%</div>` +
+                `<div style="font-size:24px; font-weight:bold;">${min} 〜 ${max}</div>` +
+                `<div style="font-size:18px; color:var(--orange); font-weight:bold;">${((min/hp)*100).toFixed(1)}% 〜 ${((max/hp)*100).toFixed(1)}%</div>` +
                 `<div class="desc">${result.desc()}</div>` +
-                `<div style="font-size:9px; color:#444; margin-top:5px;">Last Update: ${new Date().toLocaleTimeString()}</div>`;
+                `<div style="font-size:9px; color:#555; margin-top:5px;">Update: ${new Date().toLocaleTimeString()}</div>`;
 
-        } catch (err) {
-            document.getElementById('result').innerText = "エラー: " + err.message;
-        }
+        } catch (e) { document.getElementById('result').innerText = "エラー: " + e.message; }
     };
 </script>
 </body>
