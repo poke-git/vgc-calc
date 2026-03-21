@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v0.009</title>
+    <title>VGC Calc v0.010</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-<div class="version">v0.009</div>
+<div class="version">v0.010</div>
 
 <div class="card">
     <h2>攻撃側</h2>
@@ -30,7 +30,9 @@
         <div style="grid-column: span 2;">
             <div class="label">ランク補正</div>
             <select id="atk_boost">
-                <option value="6">+6</option><option value="0" selected>±0</option><option value="-6">-6</option>
+                <option value="6">+6</option><option value="5">+5</option><option value="4">+4</option><option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
+                <option value="0" selected>±0</option>
+                <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option>
             </select>
         </div>
     </div>
@@ -56,7 +58,7 @@
 </div>
 
 <button id="calcBtn">ダメージ計算実行</button>
-<div id="result">数値を入力してください</div>
+<div id="result">計算ボタンを押してください</div>
 
 <script type="module">
     const TYPE_MAP = {
@@ -65,7 +67,6 @@
         "むし": "Bug", "いわ": "Rock", "ゴースト": "Ghost", "ドラゴン": "Dragon", "あく": "Dark", "はがね": "Steel", "フェアリー": "Fairy"
     };
 
-    // UI初期化（日本語を英語名に紐付けてセット）
     const typeIds = ['atk_type', 'move_type', 'def_type1', 'def_type2'];
     typeIds.forEach(id => {
         const select = document.getElementById(id);
@@ -73,7 +74,6 @@
             const opt = document.createElement('option');
             opt.value = TYPE_MAP[jp];
             opt.textContent = jp;
-            // デバッグ用初期値：すべて格闘(Fighting)にセット
             if (jp === "かくとう") opt.selected = true;
             select.appendChild(opt);
         });
@@ -92,10 +92,12 @@
         const v = (id) => document.getElementById(id).value;
         const n = (id) => parseInt(document.getElementById(id).value) || 0;
         const isPhys = v('move_cat') === 'Physical';
+        const statKey = isPhys ? 'atk' : 'spa';
+        const defKey = isPhys ? 'def' : 'spd';
 
         try {
-            // 1. 各パラメータを最新の入力値で取得してオブジェクトを完全新規作成
-            const move = new M(9, 'CustomMove', {
+            // ライブラリの自動再計算をバイパスするため、全ての値をコンストラクタで渡す
+            const move = new M(9, 'Close Combat', { // 威力などを上書きするため適当な既存技を指定
                 bp: n('move_bp'),
                 type: v('move_type'),
                 category: v('move_cat')
@@ -104,39 +106,31 @@
             const attacker = new P(9, 'Arceus', {
                 level: 50,
                 types: [v('atk_type')],
-                boosts: { [isPhys ? 'atk' : 'spa']: n('atk_boost') }
+                boosts: { [statKey]: n('atk_boost') },
+                // rawStats を使うことで、種族値計算をスキップして実数値を直接注入する
+                rawStats: { [statKey]: n('atk_stat') }
             });
-            // 重要：種族値に依存しないよう、計算用ステータスを直接上書き
-            attacker.stats[isPhys ? 'atk' : 'spa'] = n('atk_stat');
 
             const dTypes = [v('def_type1')];
             if (v('def_type2')) dTypes.push(v('def_type2'));
             
             const defender = new P(9, 'Arceus', {
                 level: 50,
-                types: dTypes
+                types: dTypes,
+                rawStats: { hp: n('def_hp'), [defKey]: n('def_stat') }
             });
-            defender.stats.hp = n('def_hp');
-            defender.stats[isPhys ? 'def' : 'spd'] = n('def_stat');
 
-            // 2. フィールド設定（VGC想定のダブルバトル補正なし＝シングル扱いで検証）
-            const field = new F({ gameType: 'Singles' });
+            // VGC準拠のためダブルバトル設定
+            const field = new F({ gameType: 'Doubles' });
 
-            // 3. 計算実行
             const result = calc(9, attacker, defender, move, field);
             
-            // 4. undefined対策を施したダメージ抽出
+            // ダメージ配列の抽出（undefined回避）
             const d = result.damage;
-            let min, max;
+            const min = Array.isArray(d) ? d[0] : d;
+            const max = Array.isArray(d) ? d[d.length - 1] : d;
 
-            if (typeof d === 'object' && Array.isArray(d)) {
-                min = d[0];
-                max = d[d.length - 1];
-            } else if (typeof d === 'number') {
-                min = max = d;
-            } else {
-                throw new Error("Invalid damage result");
-            }
+            if (min === undefined) throw new Error("Result is undefined");
 
             const hp = n('def_hp') || 1;
             const minP = ((min / hp) * 100).toFixed(1);
@@ -145,11 +139,10 @@
             document.getElementById('result').innerHTML = 
                 `<div style="font-size:26px; font-weight:bold; color:#fff;">${min} 〜 ${max}</div>` +
                 `<div style="font-size:18px; color:var(--orange); font-weight:bold; margin:5px 0;">${minP}% 〜 ${maxP}%</div>` +
-                `<div class="desc">${result.desc()}</div>` +
-                `<div style="font-size:9px; color:#444; margin-top:5px;">更新: ${new Date().toLocaleTimeString()}</div>`;
+                `<div class="desc">${result.desc()}</div>`;
 
         } catch (e) {
-            document.getElementById('result').innerHTML = "計算エラー: " + e.message;
+            document.getElementById('result').innerHTML = "エラー: " + e.message;
         }
     };
 </script>
