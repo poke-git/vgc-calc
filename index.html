@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v5</title>
+    <title>VGC Calc v6</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
@@ -13,15 +13,11 @@
         .label { font-size: 11px; color: #aaa; margin-bottom: 3px; }
         input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
         button { width: 100%; padding: 16px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 10px; }
-        button:active { background: #2563eb; transform: scale(0.98); }
-        #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); min-height: 80px; }
+        #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); }
         .desc { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; }
-        .status { font-size: 12px; text-align: center; margin-bottom: 10px; color: #10b981; }
     </style>
 </head>
 <body>
-
-<div id="status" class="status">● 準備完了</div>
 
 <div class="card">
     <h2>攻撃側</h2>
@@ -60,10 +56,8 @@
 <script type="module">
     let calc, P, M, F;
     async function init() {
-        try {
-            const mod = await import('https://cdn.skypack.dev/@smogon/calc');
-            calc = mod.calculate; P = mod.Pokemon; M = mod.Move; F = mod.Field;
-        } catch (e) { document.getElementById('status').innerText = "エラー"; }
+        const mod = await import('https://cdn.skypack.dev/@smogon/calc');
+        calc = mod.calculate; P = mod.Pokemon; M = mod.Move; F = mod.Field;
     }
     window.onload = init;
 
@@ -74,25 +68,24 @@
         const isPhys = v('move_cat') === 'Physical';
 
         try {
-            // 【修正】わざのタイプを「絶対に」固定する設定
-            const move = new M(9, 'Tackle', { 
+            // 【解決策】実在しない技名（Custom）を使うことでライブラリの自動上書きを完全に防ぐ
+            const move = new M(9, 'CustomMove', { 
                 bp: n('move_bp'), 
                 type: v('move_type'), 
                 category: v('move_cat')
             });
-            // ライブラリの自動補正（名前によるタイプ上書き）を防ぐ
-            move.type = v('move_type');
 
-            const attacker = new P(9, 'Arceus', { // 種族値が均等なアルセウスを使用
+            // 攻撃側：タイプ相性を確実に計算させるため汎用個体を使用
+            const attacker = new P(9, 'Arceus', {
                 level: 50,
                 types: [v('atk_type')],
                 teraType: v('atk_tera') || undefined,
                 item: v('atk_item'),
                 boosts: { [isPhys ? 'atk' : 'spa']: n('atk_boost') }
             });
-            // 実数値を直接上書き（最新仕様に合わせる）
             attacker.stats[isPhys ? 'atk' : 'spa'] = n('atk_stat');
 
+            // 防御側
             const defender = new P(9, 'Arceus', {
                 level: 50,
                 types: [v('def_type1'), v('def_type2')].filter(t => t !== "")
@@ -102,18 +95,18 @@
 
             const field = new F({ weather: v('weather'), gameType: 'Doubles' });
 
+            // 計算実行
             const result = calc(9, attacker, defender, move, field);
+            
             const d = result.damage;
             const min = Array.isArray(d) ? d[0] : d;
             const max = Array.isArray(d) ? d[d.length - 1] : d;
-            
-            // タイプ相性（効果はバツグンだ！等）を手動で確認し、表示をリッチにする
             const hp = n('def_hp') || 1;
-            
+
             document.getElementById('result').innerHTML = 
                 `<div style="font-size:24px; font-weight:bold;">${min} 〜 ${max}</div>` +
                 `<div style="font-size:18px; color:var(--orange); font-weight:bold;">${((min/hp)*100).toFixed(1)}% 〜 ${((max/hp)*100).toFixed(1)}%</div>` +
-                `<div class="desc">内訳: ${result.desc()}</div>`;
+                `<div class="desc">${result.desc()}</div>`;
 
         } catch (e) { document.getElementById('result').innerText = "エラー: " + e.message; }
     };
