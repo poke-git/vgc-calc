@@ -3,47 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v0.011</title>
+    <title>VGC Calc v0.012</title>
     <style>
-        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
-        .version { position: fixed; top: 5px; right: 10px; font-size: 10px; color: #666; }
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; --green: #10b981; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; padding-bottom: 50px; }
+        .version { position: fixed; top: 5px; right: 10px; font-size: 10px; color: #666; font-weight: bold; }
         .card { background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #333; }
         h2 { font-size: 14px; margin: 0 0 10px 0; color: var(--blue); border-bottom: 1px solid #333; padding-bottom: 5px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .label { font-size: 11px; color: #aaa; margin-bottom: 3px; }
         input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        .check-group { display: flex; align-items: center; gap: 10px; margin-top: 5px; font-size: 13px; }
+        input[type="checkbox"] { width: 20px; height: 20px; }
         button { width: 100%; padding: 18px; background: var(--blue); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 10px; }
         #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 10px; border: 2px solid var(--orange); }
-        .calc-log { font-size: 10px; color: #555; margin-top: 10px; font-family: monospace; }
+        .calc-log { font-size: 10px; color: #555; margin-top: 10px; font-family: monospace; line-height: 1.4; }
     </style>
 </head>
 <body>
 
-<div class="version">v0.011</div>
+<div class="version">v0.012</div>
 
 <div class="card">
     <h2>攻撃側</h2>
     <div class="grid">
         <div><div class="label">本体タイプ</div><select id="atk_type"></select></div>
         <div><div class="label">攻撃実数値</div><input type="number" id="atk_stat" value="202"></div>
-        <div style="grid-column: span 2;">
-            <div class="label">ランク補正</div>
+        <div><div class="label">ランク補正</div>
             <select id="atk_boost">
                 <option value="6">+6</option><option value="5">+5</option><option value="4">+4</option><option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
                 <option value="0" selected>±0</option>
                 <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option>
             </select>
         </div>
+        <div><div class="label">持ち物</div>
+            <select id="atk_item">
+                <option value="1.0">なし</option>
+                <option value="1.5">ハチマキ/メガネ</option>
+                <option value="1.3">いのちのたま</option>
+                <option value="1.2">たつじんのおび/タイプ強化</option>
+            </select>
+        </div>
+        <div style="grid-column: span 2;">
+            <div class="label">特性・その他</div>
+            <select id="atk_ability">
+                <option value="1.0">なし</option>
+                <option value="1.5">手助け / こだわり系 / 特性1.5倍</option>
+                <option value="1.3">クォークチャージ等(1.3倍)</option>
+                <option value="2.0">特性2.0倍</option>
+            </select>
+        </div>
     </div>
 </div>
 
 <div class="card">
-    <h2>わざ</h2>
+    <h2>わざ・環境</h2>
     <div class="grid">
         <div><div class="label">わざタイプ</div><select id="move_type"></select></div>
+        <div><div class="label">威力</div><input type="number" id="move_bp" value="100"></div>
+        <div><div class="label">天候</div>
+            <select id="weather">
+                <option value="none">なし</option>
+                <option value="sun">晴れ</option>
+                <option value="rain">雨</option>
+                <option value="sand">砂嵐</option>
+                <option value="snow">雪</option>
+            </select>
+        </div>
         <div><div class="label">分類</div><select id="move_cat"><option value="Physical">物理</option><option value="Special">特殊</option></select></div>
-        <div style="grid-column: span 2;"><div class="label">威力</div><input type="number" id="move_bp" value="100"></div>
+    </div>
+    <div class="check-group">
+        <input type="checkbox" id="is_double"> <label for="is_double">ダブルダメージ (0.75x)</label>
     </div>
 </div>
 
@@ -57,23 +87,34 @@
     </div>
 </div>
 
-<button id="calcBtn">計算実行</button>
-<div id="result">結果がここに表示されます</div>
+<button id="calcBtn">ダメージ計算実行</button>
+<div id="result">数値を入力してください</div>
 
 <script>
-// タイプ相性表 (0:無効, 0.5:半減, 1:等倍, 2:抜群)
 const TYPES = ["ノーマル", "ほのお", "みず", "くさ", "でんき", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"];
 const CHART = {
     "かくとう": {"ノーマル": 2, "こおり": 2, "いわ": 2, "あく": 2, "はがね": 2, "どく": 0.5, "ひこう": 0.5, "エスパー": 0.5, "むし": 0.5, "フェアリー": 0.5, "ゴースト": 0},
     "ほのお": {"くさ": 2, "こおり": 2, "むし": 2, "はがね": 2, "ほのお": 0.5, "みず": 0.5, "いわ": 0.5, "ドラゴン": 0.5},
     "みず": {"ほのお": 2, "じめん": 2, "いわ": 2, "みず": 0.5, "くさ": 0.5, "ドラゴン": 0.5},
-    // 他の相性は必要に応じて追加（今回はデバッグ対象の"かくとう"を優先実装）
+    "くさ": {"みず": 2, "じめん": 2, "いわ": 2, "ほのお": 0.5, "くさ": 0.5, "どく": 0.5, "ひこう": 0.5, "むし": 0.5, "ドラゴン": 0.5, "はがね": 0.5},
+    "でんき": {"みず": 2, "ひこう": 2, "でんき": 0.5, "くさ": 0.5, "ドラゴン": 0.5, "じめん": 0},
+    "こおり": {"くさ": 2, "じめん": 2, "ひこう": 2, "ドラゴン": 2, "ほのお": 0.5, "みず": 0.5, "こおり": 0.5, "はがね": 0.5},
+    "どく": {"くさ": 2, "フェアリー": 2, "どく": 0.5, "じめん": 0.5, "いわ": 0.5, "ゴースト": 0.5, "はがね": 0},
+    "じめん": {"ほのお": 2, "でんき": 2, "どく": 2, "いわ": 2, "はがね": 2, "くさ": 0.5, "むし": 0.5, "ひこう": 0},
+    "ひこう": {"くさ": 2, "かくとう": 2, "むし": 2, "でんき": 0.5, "いわ": 0.5, "はがね": 0.5},
+    "エスパー": {"かくとう": 2, "どく": 2, "エスパー": 0.5, "はがね": 0.5, "あく": 0},
+    "むし": {"くさ": 2, "エスパー": 2, "あく": 2, "ほのお": 0.5, "かくとう": 0.5, "どく": 0.5, "ひこう": 0.5, "ゴースト": 0.5, "はがね": 0.5, "フェアリー": 0.5},
+    "いわ": {"ほのお": 2, "こおり": 2, "ひこう": 2, "むし": 2, "かくとう": 0.5, "じめん": 0.5, "はがね": 0.5},
+    "ゴースト": {"エスパー": 2, "ゴースト": 2, "あく": 0.5, "ノーマル": 0},
+    "ドラゴン": {"ドラゴン": 2, "はがね": 0.5, "フェアリー": 0},
+    "あく": {"エスパー": 2, "ゴースト": 2, "かくとう": 0.5, "あく": 0.5, "フェアリー": 0.5},
+    "はがね": {"こおり": 2, "いわ": 2, "フェアリー": 2, "ほのお": 0.5, "みず": 0.5, "でんき": 0.5, "はがね": 0.5},
+    "フェアリー": {"かくとう": 2, "ドラゴン": 2, "あく": 2, "ほのお": 0.5, "どく": 0.5, "はがね": 0.5},
+    "ノーマル": {"いわ": 0.5, "はがね": 0.5, "ゴースト": 0}
 };
 
-// UI構築
-const setupSelects = () => {
-    const ids = ['atk_type', 'move_type', 'def_type1', 'def_type2'];
-    ids.forEach(id => {
+const setup = () => {
+    ['atk_type', 'move_type', 'def_type1', 'def_type2'].forEach(id => {
         const s = document.getElementById(id);
         TYPES.forEach(t => {
             const opt = document.createElement('option');
@@ -83,47 +124,49 @@ const setupSelects = () => {
         });
     });
 };
-setupSelects();
+setup();
 
-const getRankMod = (rank) => {
-    const r = parseInt(rank);
-    return r >= 0 ? (2 + r) / 2 : 2 / (2 - r);
-};
+const getRankMod = (r) => r >= 0 ? (2 + r) / 2 : 2 / (2 - Math.abs(r));
 
 document.getElementById('calcBtn').onclick = () => {
     const n = (id) => parseFloat(document.getElementById(id).value) || 0;
     const v = (id) => document.getElementById(id).value;
+    const isChecked = (id) => document.getElementById(id).checked;
 
-    // --- ポケモン ダメージ計算ロジック ---
     const level = 50;
-    const atkBase = n('atk_stat') * getRankMod(v('atk_boost'));
-    const defBase = n('def_stat');
+    const atk = n('atk_stat') * getRankMod(n('atk_boost')) * n('atk_item') * n('atk_ability');
+    const def = n('def_stat');
     const bp = n('move_bp');
 
-    // 1. 基本ダメージ計算: floor(floor(floor(2 * Level / 5 + 2) * Power * A / D) / 50) + 2
-    let baseDamage = Math.floor(Math.floor(Math.floor(Math.floor(2 * level / 5 + 2) * bp * atkBase / defBase) / 50) + 2);
+    // 1. 基本ダメージ
+    let damage = Math.floor(Math.floor(Math.floor(Math.floor(2 * level / 5 + 2) * bp * atk / def) / 50) + 2);
 
-    // 2. タイプ相性の計算
-    const getEffect = (mType, dType) => (CHART[mType] && CHART[mType][dType] !== undefined) ? CHART[mType][dType] : 1;
-    let effect = getEffect(v('move_type'), v('def_type1'));
-    if(v('def_type2')) effect *= getEffect(v('move_type'), v('def_type2'));
+    // 2. 範囲補正 (ダブルダメージ)
+    if (isChecked('is_double')) damage = Math.floor(damage * 0.75);
 
-    // 3. タイプ一致補正 (STAB)
+    // 3. 天候補正
+    const weather = v('weather');
+    const mType = v('move_type');
+    if ((weather === 'sun' && mType === 'ほのお') || (weather === 'rain' && mType === 'みず')) damage = Math.floor(damage * 1.5);
+    if ((weather === 'sun' && mType === 'みず') || (weather === 'rain' && mType === 'ほのお')) damage = Math.floor(damage * 0.5);
+
+    // 4. 乱数幅の計算と補正
     const stab = (v('atk_type') === v('move_type')) ? 1.5 : 1;
+    const getEff = (mt, dt) => (CHART[mt] && CHART[mt][dt] !== undefined) ? CHART[mt][dt] : 1;
+    let effect = getEff(mType, v('def_type1'));
+    if(v('def_type2')) effect *= getEff(mType, v('def_type2'));
 
-    // 4. 乱数幅の計算 (0.85 〜 1.00)
     const results = [];
     for (let i = 85; i <= 100; i++) {
-        // 公式の順序: floor(floor(Base * Random / 100) * STAB) * TypeEffect
-        let d = Math.floor(baseDamage * i / 100);
+        let d = Math.floor(damage * i / 100);
         d = Math.floor(d * stab);
         d = Math.floor(d * effect);
+        // いのちのたま等の最終ダメージ補正はここ (簡易実装)
+        if (n('atk_item') === 1.3) d = Math.floor(d * 1.3);
         results.push(d);
     }
 
-    const min = results[0];
-    const max = results[results.length - 1];
-    const hp = n('def_hp') || 1;
+    const min = results[0], max = results[results.length - 1], hp = n('def_hp') || 1;
 
     document.getElementById('result').innerHTML = `
         <div style="font-size:28px; font-weight:bold; color:#fff;">${min} 〜 ${max}</div>
@@ -131,9 +174,9 @@ document.getElementById('calcBtn').onclick = () => {
             ${((min/hp)*100).toFixed(1)}% 〜 ${((max/hp)*100).toFixed(1)}%
         </div>
         <div class="calc-log">
-            Base: ${baseDamage} | STAB: ${stab}x | Type: ${effect}x<br>
-            A: ${atkBase.toFixed(1)} / D: ${defBase}<br>
-            Rolls: ${results.join(', ')}
+            補正後攻撃: ${atk.toFixed(1)} | 威力: ${bp}<br>
+            一致: ${stab}x | 相性: ${effect}x | 天候/範囲: ${isChecked('is_double')?'0.75x':''} ${weather!=='none'?'Weather':''}<br>
+            乱数: [${results[0]}, ..., ${results[15]}]
         </div>
     `;
 };
