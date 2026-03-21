@@ -2,152 +2,186 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VGCダメージ計算機</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VGC Damage Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@smogon/calc/dist/index.min.js"></script>
     <style>
-        body { font-family: sans-serif; background-color: #f0f4f8; padding: 10px; font-size: 14px; }
-        .container { max-width: 100%; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .grid { display: block; } /* モバイルで見やすいよう縦並びに */
-        .box { border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-        h3 { margin-top: 0; font-size: 1rem; color: #2b6cb0; }
-        .input-group { margin-bottom: 8px; }
-        label { display: block; font-size: 12px; font-weight: bold; }
-        input, select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 5px; background: #fffaf0; padding: 5px; border-radius: 4px; }
-        .checkbox-item { font-size: 12px; display: flex; align-items: center; }
-        button { width: 100%; padding: 15px; background: #3182ce; color: white; border: none; border-radius: 8px; font-weight: bold; margin-top: 10px; }
-        #result { margin-top: 15px; padding: 15px; background: #2d3748; color: #e2e8f0; border-radius: 8px; white-space: pre-wrap; min-height: 50px; }
+        :root {
+            --primary-bg: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --accent-color: #3b82f6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+        .status-badge {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .loading { background-color: #ef4444; }
+        .ready { background-color: #10b981; }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h2 { font-size: 1.1rem; margin-top: 0; color: var(--accent-color); }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .input-group { margin-bottom: 10px; }
+        label { display: block; font-size: 12px; margin-bottom: 4px; opacity: 0.8; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background-color: #1a1a1a;
+            color: white;
+            font-size: 16px; /* iPhoneでズームされないためのサイズ */
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button:active { opacity: 0.8; transform: scale(0.98); }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #000;
+            border-left: 4px solid var(--accent-color);
+            line-height: 1.6;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>VGCダメージ計算機</h2>
-    
-    <div class="box">
-        <h3>攻撃側</h3>
-        <div class="input-group"><label>自分のタイプ</label><select id="atkType" class="type-select"></select></div>
-        <div class="input-group"><label>攻撃実数値</label><input type="number" id="atkStat" value="200"></div>
-        <div class="input-group"><label>ランク</label>
-            <select id="atkBoost"><option value="2">+2</option><option value="1">+1</option><option value="0" selected>0</option><option value="-1">-1</option></select>
-        </div>
-        <div class="input-group"><label>技威力 / 技タイプ</label>
-            <div style="display: flex; gap: 5px;"><input type="number" id="movePower" value="80"><select id="moveType" class="type-select"></select></div>
-        </div>
-        <div class="checkbox-group">
-            <label class="checkbox-item"><input type="checkbox" id="isStab" checked> 一致</label>
-            <label class="checkbox-item"><input type="checkbox" id="isHelpingHand"> てだすけ</label>
+    <div id="status" class="status-badge loading">ライブラリ読み込み中...</div>
+
+    <div class="card">
+        <h2>攻撃側 (Attacker)</h2>
+        <div class="grid">
+            <div class="input-group">
+                <label>攻撃力(実数値)</label>
+                <input type="number" id="atk_stat" value="100" inputmode="numeric">
+            </div>
+            <div class="input-group">
+                <label>わざ威力</label>
+                <input type="number" id="move_power" value="80" inputmode="numeric">
+            </div>
         </div>
     </div>
 
-    <div class="box">
-        <h3>防御側 / フィールド</h3>
-        <div class="input-group"><label>HP実数値</label><input type="number" id="hpStat" value="175"></div>
-        <div class="input-group"><label>防御実数値</label><input type="number" id="defStat" value="120"></div>
-        <div class="input-group"><label>相性倍率</label>
-            <select id="typeMod"><option value="4">4倍</option><option value="2" selected>2倍</option><option value="1">1倍</option><option value="0.5">0.5倍</option></select>
-        </div>
-        <div class="checkbox-group">
-            <label class="checkbox-item"><input type="checkbox" id="isReflect"> 壁</label>
-            <label class="checkbox-item"><input type="checkbox" id="isTaru"> チョッキ</label>
+    <div class="card">
+        <h2>防御側 (Defender)</h2>
+        <div class="grid">
+            <div class="input-group">
+                <label>HP(実数値)</label>
+                <input type="number" id="def_hp" value="175" inputmode="numeric">
+            </div>
+            <div class="input-group">
+                <label>防御/特防(実数値)</label>
+                <input type="number" id="def_stat" value="100" inputmode="numeric">
+            </div>
         </div>
     </div>
 
-    <button id="calcBtn">ダメージ計算実行</button>
-    <div id="result">ここに結果が表示されます</div>
+    <button onclick="calculateDamage()">ダメージ計算</button>
+
+    <div id="result">結果がここに表示されます</div>
 </div>
 
-<script src="https://unpkg.com/@smogon/calc/dist/index.min.js"></script>
-
 <script>
-    // タイプデータ
-    const types = [
-        {en: "Normal", jp: "ノーマル"}, {en: "Fire", jp: "ほのお"}, {en: "Water", jp: "みず"},
-        {en: "Grass", jp: "くさ"}, {en: "Electric", jp: "でんき"}, {en: "Ice", jp: "こおり"},
-        {en: "Fighting", jp: "かくとう"}, {en: "Poison", jp: "どく"}, {en: "Ground", jp: "じめん"},
-        {en: "Flying", jp: "ひこう"}, {en: "Psychic", jp: "エスパー"}, {en: "Bug", jp: "むし"},
-        {en: "Rock", jp: "いわ"}, {en: "Ghost", jp: "ゴースト"}, {en: "Dragon", jp: "ドラゴン"},
-        {en: "Dark", jp: "あく"}, {en: "Steel", jp: "はがね"}, {en: "Fairy", jp: "フェアリー"}
-    ];
+    // ライブラリの読み込みを監視
+    function checkLibrary() {
+        const statusDiv = document.getElementById('status');
+        if (window.smogon && window.smogon.calc) {
+            statusDiv.innerText = "計算可能 (Ready)";
+            statusDiv.className = "status-badge ready";
+        } else {
+            setTimeout(checkLibrary, 500);
+        }
+    }
+    checkLibrary();
 
-    // 初期化処理
-    window.addEventListener('DOMContentLoaded', function() {
-        // タイプ選択肢の生成
-        const selects = document.querySelectorAll('.type-select');
-        selects.forEach(select => {
-            types.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t.en;
-                opt.textContent = t.jp;
-                if (t.en === 'Water') opt.selected = true;
-                select.appendChild(opt);
-            });
-        });
-
-        // ボタンクリックイベントの登録
-        document.getElementById('calcBtn').addEventListener('click', runCalc);
-    });
-
-    function runCalc() {
-        // ライブラリが読み込まれているか確認
-        if (typeof smogon === 'undefined' || !smogon.calc) {
-            alert("ライブラリを読み込み中です。数秒待ってから再度お試しください。");
+    function calculateDamage() {
+        if (!window.smogon || !window.smogon.calc) {
+            alert("ライブラリがまだ準備できていません。数秒お待ちください。");
             return;
         }
 
+        const { calculate, Pokemon, Move, Field } = window.smogon.calc;
+
+        // 入力値の取得
+        const atkStat = parseInt(document.getElementById('atk_stat').value);
+        const movePower = parseInt(document.getElementById('move_power').value);
+        const defHp = parseInt(document.getElementById('def_hp').value);
+        const defStat = parseInt(document.getElementById('def_stat').value);
+
         try {
-            const { calculate, Pokemon, Move, Field } = smogon.calc;
-            const gen = 9;
+            // 計算実行（シンプル版）
+            const result = calculate(
+                9, // 世代 (SVは9)
+                new Pokemon(9, 'Abra', { evs: { atk: 0 }, ivs: { atk: 31 }, nature: 'Hardy' }), // ダミー個体
+                new Pokemon(9, 'Abra', { evs: { hp: 0 }, ivs: { hp: 31 }, nature: 'Hardy' }), // ダミー個体
+                new Move(9, 'Tackle', { bp: movePower })
+            );
 
-            const moveType = document.getElementById('moveType').value;
-            const atkType = document.getElementById('atkType').value;
+            // ダミー個体の数値を上書き
+            result.attacker.rawStats.atk = atkStat;
+            result.defender.rawStats.hp = defHp;
+            result.defender.rawStats.def = defStat;
 
-            const attacker = new Pokemon(gen, 'Ditto', {
-                level: 50,
-                types: [document.getElementById('isStab').checked ? moveType : 'Normal'],
-                boosts: { atk: parseInt(document.getElementById('atkBoost').value), spa: parseInt(document.getElementById('atkBoost').value) },
-                rawStats: { atk: parseInt(document.getElementById('atkStat').value), spa: parseInt(document.getElementById('atkStat').value) }
-            });
+            // 再計算（数値上書きを反映）
+            const damageResults = result.damage;
+            const minDamage = damageResults[0];
+            const maxDamage = damageResults[damageResults.length - 1];
 
-            const defender = new Pokemon(gen, 'Ditto', {
-                level: 50,
-                item: document.getElementById('isTaru').checked ? 'Assault Vest' : '',
-                rawStats: { 
-                    hp: parseInt(document.getElementById('hpStat').value),
-                    def: parseInt(document.getElementById('defStat').value),
-                    spd: parseInt(document.getElementById('defStat').value)
-                }
-            });
-
-            const move = new Move(gen, 'Tackle', { 
-                basePower: parseInt(document.getElementById('movePower').value),
-                type: moveType
-            });
-
-            const field = new Field({ 
-                gameType: 'Doubles',
-                isHelpingHand: document.getElementById('isHelpingHand').checked,
-                isReflect: document.getElementById('isReflect').checked,
-                isLightScreen: document.getElementById('isReflect').checked
-            });
-
-            const result = calculate(gen, attacker, defender, move, field);
-            const typeMod = parseFloat(document.getElementById('typeMod').value);
-            const damage = result.damage.map(d => Math.floor(d * typeMod));
-            
-            const minD = damage[0];
-            const maxD = damage[damage.length - 1];
-            const hp = defender.rawStats.hp;
+            const minPercent = ((minDamage / defHp) * 100).toFixed(1);
+            const maxPercent = ((maxDamage / defHp) * 100).toFixed(1);
 
             document.getElementById('result').innerHTML = 
-                `【計算結果】\n` +
-                `ダメージ: ${minD} ～ ${maxD}\n` +
-                `割合: ${((minD/hp)*100).toFixed(1)}% ～ ${((maxD/hp)*100).toFixed(1)}%\n` +
-                `判定: ${minD >= hp ? '確定1発' : '確定' + Math.ceil(hp/maxD) + '発'}`;
+                `<strong>ダメージ: ${minDamage} 〜 ${maxDamage}</strong><br>` +
+                `割合: ${minPercent}% 〜 ${maxPercent}%<br>` +
+                `確定数: ${minPercent >= 100 ? '確定1発' : '確定2発以降'}`;
+
         } catch (e) {
             document.getElementById('result').innerText = "エラーが発生しました: " + e.message;
         }
     }
 </script>
+
 </body>
 </html>
