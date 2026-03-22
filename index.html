@@ -3,11 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VGC Calc v0.023</title>
+    <title>VGC Calc v0.024</title>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --blue: #3b82f6; --orange: #f59e0b; --mega: #a855f7; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; padding-bottom: 50px; }
-        .version { position: fixed; top: 5px; right: 10px; font-size: 10px; color: #666; font-weight: bold; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; padding-bottom: 50px; padding-top: 140px; } /* 結果表示分の余白 */
+        
+        /* バージョン表示を下に移動 */
+        .version { position: fixed; bottom: 5px; right: 10px; font-size: 10px; color: #444; font-weight: bold; }
+        
+        /* ダメージ表示を上部に固定 */
+        #result { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            z-index: 1000; 
+            background: rgba(0, 0, 0, 0.9); 
+            backdrop-filter: blur(8px);
+            border-bottom: 2px solid var(--orange); 
+            text-align: center; 
+            padding: 12px 10px; 
+            box-sizing: border-box;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
         .card { background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #333; }
         h2 { font-size: 13px; margin: 0 0 8px 0; color: var(--blue); border-bottom: 1px solid #333; padding-bottom: 4px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -29,16 +48,16 @@
         .weather-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; background: #2a2a2a; padding: 8px 0; border-radius: 6px; font-size: 10px; border: 1px solid #444; cursor: pointer; }
         .weather-item input { width: 18px; height: 18px; margin: 0; }
 
-        button { width: 100%; padding: 20px; background: var(--blue); color: white; border: none; border-radius: 14px; font-size: 20px; font-weight: bold; margin-top: 10px; box-shadow: 0 4px 0 #1d4ed8; }
-        button:active { transform: translateY(2px); box-shadow: none; }
-        
-        #result { margin-top: 15px; padding: 15px; background: #000; border-radius: 12px; border: 2px solid var(--orange); text-align: center; min-height: 80px; }
-        .calc-log { font-size: 11px; color: #555; margin-top: 8px; font-family: monospace; text-align: left; line-height: 1.2; }
+        .calc-log { font-size: 10px; color: #777; margin-top: 6px; font-family: monospace; text-align: center; line-height: 1.1; }
     </style>
 </head>
 <body>
 
-<div class="version">v0.023</div>
+<div id="result">
+    <div style="color:#666; font-size: 14px; margin: 10px 0;">数値を入力してください</div>
+</div>
+
+<div class="version">v0.024</div>
 
 <div class="card">
     <h2>攻撃側</h2>
@@ -64,7 +83,7 @@
                 <option value="2.0">ちからもち系 (2.0x)</option>
                 <option value="1.3">いのちのたま (1.3x)</option>
                 <option value="1.2">たつじんのおび/タイプ強化 (1.2x)</option>
-                <option value="1.1">ちからの鉢巻/ものしり眼鏡 (1.1x)</option>
+                <option value="1.1">ち力の鉢巻/ものしり眼鏡 (1.1x)</option>
             </select>
         </div>
     </div>
@@ -99,9 +118,6 @@
     </div>
 </div>
 
-<button id="calcBtn">ダメージ計算</button>
-<div id="result"><div style="color:#666; margin-top:20px;">条件を入力して計算</div></div>
-
 <script>
 const POKE_DB = {
     "メタグロス": [[80,135,130,95,90,70], [80,145,150,105,110,110], ["はがね","エスパー"], ["はがね","エスパー"]],
@@ -126,21 +142,6 @@ const POKE_DB = {
 
 const TYPES = ["ノーマル", "ほのお", "みず", "くさ", "でんき", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"];
 const CHART = {"ノーマル":{"いわ":0.5,"ゴースト":0,"はがね":0.5},"ほのお":{"ほのお":0.5,"みず":0.5,"くさ":2,"こおり":2,"むし":2,"いわ":0.5,"ドラゴン":0.5,"はがね":2},"みず":{"ほのお":2,"みず":0.5,"くさ":0.5,"じめん":2,"いわ":2,"ドラゴン":0.5},"くさ":{"ほのお":0.5,"みず":2,"くさ":0.5,"どく":0.5,"じめん":2,"ひこう":0.5,"むし":0.5,"いわ":2,"ドラゴン":0.5,"はがね":0.5},"でんき":{"みず":2,"くさ":0.5,"でんき":0.5,"じめん":0,"ひこう":2,"ドラゴン":0.5},"こおり":{"ほのお":0.5,"みず":0.5,"くさ":2,"こおり":0.5,"じめん":2,"ひこう":2,"ドラゴン":2,"はがね":0.5},"かくとう":{"ノーマル":2,"こおり":2,"どく":0.5,"ひこう":0.5,"エスパー":0.5,"むし":0.5,"いわ":2,"ゴースト":0,"あく":2,"はがね":2,"フェアリー":0.5},"どく":{"くさ":2,"どく":0.5,"じめん":0.5,"いわ":0.5,"ゴースト":0.5,"はがね":0,"フェアリー":2},"じめん":{"ほのお":2,"でんき":2,"くさ":0.5,"どく":2,"ひこう":0,"むし":0.5,"いわ":2,"はがね":2},"ひこう":{"くさ":2,"でんき":0.5,"かくとう":2,"むし":2,"いわ":0.5,"はがね":0.5},"エスパー":{"かくとう":2,"どく":2,"エスパー":0.5,"あく":0,"はがね":0.5},"むし":{"ほのお":0.5,"くさ":2,"かくとう":0.5,"どく":0.5,"ひこう":0.5,"エスパー":2,"ゴースト":0.5,"あく":2,"はがね":0.5,"フェアリー":0.5},"いわ":{"ほのお":2,"こおり":2,"かくとう":0.5,"じめん":0.5,"ひこう":2,"むし":2,"はがね":0.5},"ゴースト":{"ノーマル":0,"エスパー":2,"ゴースト":2,"あく":0.5},"ドラゴン":{"ドラゴン":2,"はがね":0.5,"フェアリー":0},"あく":{"かくとう":0.5,"エスパー":2,"ゴースト":2,"あく":0.5,"フェアリー":0.5},"はがね":{"ほのお":0.5,"みず":0.5,"でんき":0.5,"こおり":2,"いわ":2,"はがね":0.5,"フェアリー":2},"フェアリー":{"ほのお":0.5,"かくとう":2,"どく":0.5,"ドラゴン":2,"あく":2,"はがね":0.5}};
-
-const setup = () => {
-    ['atk_type1', 'atk_type2', 'move_type', 'def_type1', 'def_type2'].forEach(id => {
-        const s = document.getElementById(id);
-        TYPES.forEach(t => {
-            const opt = document.createElement('option'); opt.value = t; opt.textContent = t;
-            s.appendChild(opt);
-        });
-    });
-    const atkS = document.getElementById('atk_pokemon'), defS = document.getElementById('def_pokemon');
-    Object.keys(POKE_DB).forEach(name => {
-        const o1 = document.createElement('option'); o1.value = name; o1.textContent = name; atkS.appendChild(o1);
-        const o2 = document.createElement('option'); o2.value = name; o2.textContent = name; defS.appendChild(o2);
-    });
-};
 
 const calculateDamage = () => {
     const n=(id)=>parseFloat(document.getElementById(id).value)||0, v=(id)=>document.getElementById(id).value, c=(id)=>document.getElementById(id).checked;
@@ -189,8 +190,6 @@ const updatePoke = (side) => {
     const disp = document.getElementById(side + '_base_display');
     if(!name) {
         disp.textContent = "H--- A--- B--- C--- D--- S---";
-        document.getElementById(side + '_type1').value = "ノーマル";
-        document.getElementById(side + '_type2').value = "";
         return;
     }
     const d = POKE_DB[name];
@@ -212,15 +211,29 @@ const updatePoke = (side) => {
     }
 };
 
-// 全入力項目に対してイベントリスナーを設定
+const setup = () => {
+    ['atk_type1', 'atk_type2', 'move_type', 'def_type1', 'def_type2'].forEach(id => {
+        const s = document.getElementById(id);
+        TYPES.forEach(t => {
+            const opt = document.createElement('option'); opt.value = t; opt.textContent = t;
+            s.appendChild(opt);
+        });
+    });
+    const atkS = document.getElementById('atk_pokemon'), defS = document.getElementById('def_pokemon');
+    Object.keys(POKE_DB).forEach(name => {
+        const o1 = document.createElement('option'); o1.value = name; o1.textContent = name; atkS.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value = name; o2.textContent = name; defS.appendChild(o2);
+    });
+};
+
+setup();
+
 const inputIds = [
     'atk_pokemon', 'atk_mega', 'atk_type1', 'atk_type2', 'atk_stat', 'atk_boost', 'atk_ability',
     'is_double', 'weather_sun', 'weather_rain', 'weather_sand', 'weather_snow',
     'move_type', 'move_bp', 'move_cat',
     'def_pokemon', 'def_mega', 'def_type1', 'def_type2', 'def_hp', 'def_stat'
 ];
-
-setup();
 
 inputIds.forEach(id => {
     const el = document.getElementById(id);
@@ -233,7 +246,8 @@ inputIds.forEach(id => {
     });
 });
 
-document.getElementById('calcBtn').onclick = calculateDamage;
+// 初期計算
+calculateDamage();
 </script>
 </body>
 </html>
